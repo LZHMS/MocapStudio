@@ -399,6 +399,8 @@ export default function Processing() {
     const [jobs, setJobs] = useState<ProcessingJob[]>([]);
     const [smplJobs, setSmplJobs] = useState<SmplJob[] | null>(null);
     const [smplEpoch, setSmplEpoch] = useState(0);
+    const [queueMode, setQueueMode] = useState<'process' | 'fit'>('process');
+    const [fitSelected, setFitSelected] = useState<Record<string, SelectedInput>>({});
     useEffect(() => {
         let stopped = false;
         const load = () => processingApi.smplJobs().then((result) => { if (!stopped) setSmplJobs(result.jobs); }).catch(() => { /* 下一轮再试 */ });
@@ -716,6 +718,7 @@ export default function Processing() {
     }, [logs, followLogs, logsOpen]);
 
     const selectedPaths = Object.keys(selectedInputs);
+    const fitPaths = Object.keys(fitSelected);
     const job = detail?.id === selectedId ? detail : jobs.find((entry) => entry.id === selectedId) ?? null;
     const selectedStage = job?.stages.find((entry) => entry.id === stageId) ?? null;
     const stageArtifacts = selectedStage ? job?.artifacts.filter((entry) => entry.stage_id === selectedStage.id
@@ -840,6 +843,15 @@ export default function Processing() {
             setSmplEpoch((value) => value + 1);
         } catch (error) { setActionError(errorText(error)); }
     }
+    async function enqueueFits() {
+        if (!config || !fitPaths.length) return;
+        try {
+            const result = await processingApi.createSmplJobs(fitPaths, config.csrf_token);
+            setNotice(`已加入 SMPL 拟合：${result.jobs.length} 条（逐演员提取标记 → GPU 拟合 → 骨骼蒙皮导出，结果写回同目录）`);
+            setFitSelected({});
+            setSmplEpoch((value) => value + 1);
+        } catch (error) { setActionError(errorText(error)); }
+    }
     function loadViewerUrl(fileUrl: string, name: string, bytes: number) {
         if (!config) return;
         if (bytes > LARGE_FILE
@@ -887,6 +899,20 @@ export default function Processing() {
     }
 
     function setSelected(entry: SelectedInput, path: string, on: boolean) {
+        if (queueMode === 'fit') {
+            const first = relSegments(path)[0] || '';
+            if (entry.kind !== 'fbx' || !/^0[23]_/i.test(first)) {
+                setNotice('拟合队列只接受 02_processed / 03_exports 结果目录下的 .fbx 文件。');
+                return;
+            }
+            setFitSelected((previous) => {
+                const next = { ...previous };
+                if (on) next[path] = entry;
+                else delete next[path];
+                return next;
+            });
+            return;
+        }
         setSelectedInputs((previous) => {
             const next = { ...previous };
             if (on) next[path] = entry;
@@ -1193,7 +1219,7 @@ export default function Processing() {
                     </div>
                 </div>;
             }
-            const on = !!selectedInputs[entry.path];
+            const on = !!(queueMode === 'fit' ? fitSelected : selectedInputs)[entry.path];
             return <button key={entry.path} type="button" className={`tree-row${on ? ' is-selected' : ''}`} data-file={entry.path} style={pad}
                 role="treeitem" aria-pressed={on} aria-level={depth + 1} aria-posinset={index + 1} aria-setsize={entries.length}
                 title={`${entry.path} · ${sizeText(entry.size_bytes)} · 点击加入待处理,提交后第一阶段即解析名单`}
@@ -1403,36 +1429,56 @@ export default function Processing() {
                 <div className="tray-box" style={{ height: trayHeight }}>
                     <div className="pipeline">
                         <div className="pipeline-title">处理配置</div>
-                        <AdvancedOptions flags={optionFlags} onFlags={setOptionFlags}
-                            jitter={jitter} onJitter={setJitter} tolerance={tolerance} onTolerance={setTolerance} />
-                        {optionFlags.includes('attach_meshes') && config && !config.blender_path && <p className="callout warn">未检测到 Blender；网格挂载可能失败，实际错误保留在任务日志与报告中。</p>}
+                        <div className="queue-mode" role="group" aria-label="队列类型">
+                            <button type="button" className={queueMode === 'process' ? 'on' : ''} onClick={() => setQueueMode('process')}>数据处理</button>
+                            <button type="button" className={queueMode === 'fit' ? 'on' : ''} onClick={() => setQueueMode('fit')}>SMPL 拟合</button>
+                        </div>
+                        {queueMode === 'process' ? <>
+                            <AdvancedOptions flags={optionFlags} onFlags={setOptionFlags}
+                                jitter={jitter} onJitter={setJitter} tolerance={tolerance} onTolerance={setTolerance} />
+                            {optionFlags.includes('attach_meshes') && config && !config.blender_path && <p className="callout warn">未检测到 Blender；网格挂载可能失败，实际错误保留在任务日志与报告中。</p>}
+                        </> : <>
+                            <p className="hint queue-fit-hint">在左侧树选择 <b>02_processed / 03_exports</b> 下的 .fbx 进入下方拟合清单：逐演员提取标记 → DirtyMoCap GPU 拟合 → 骨骼蒙皮动画 FBX 写回同目录，可在查看器直接对比。GPU 推理跨任务串行。</p>
+                            {config && !config.blender_path && <p className="callout warn">未检测到 Blender；拟合需要 Blender 提取标记与导出蒙皮 FBX。</p>}
+                        </>}
                     </div>
                     <div className="tray-divider" role="presentation" />
                     <div className="create-row">
-                        <button className="btn primary" type="button" aria-busy={creating} disabled={createDisabled || selectedPaths.length !== 1}
-                            title="单条序列逐步处理：在真实阶段边界等待，每点一次执行一个阶段"
-                            onClick={() => void createJobs('manual')}>逐步处理</button>
-                        <button className="btn primary" type="button" disabled={createDisabled} aria-busy={creating}
-                            title="自动批处理：连续执行整条管线；等待中的原生会话占用并行槽位"
-                            onClick={() => void createJobs('auto')}>自动批处理{selectedPaths.length ? ` (${selectedPaths.length})` : ''}</button>
-                        <span className="grow" />
-                        <span className="field-inline" title="队列并发上限(1-8)，选择即自动保存;暂停中的原生会话仍占执行 / 许可槽位"><span>并发</span>
-                            <WorkersSelect value={Number(workers)} max={config?.max_workers_limit ?? 8}
-                                disabled={!config || savingWorkers}
-                                onChange={(value) => { setWorkers(value); void saveWorkers(value); }} />
-                        </span>
+                        {queueMode === 'process' ? <>
+                            <button className="btn primary" type="button" aria-busy={creating} disabled={createDisabled || selectedPaths.length !== 1}
+                                title="单条序列逐步处理：在真实阶段边界等待，每点一次执行一个阶段"
+                                onClick={() => void createJobs('manual')}>逐步处理</button>
+                            <button className="btn primary" type="button" disabled={createDisabled} aria-busy={creating}
+                                title="自动批处理：连续执行整条管线；等待中的原生会话占用并行槽位"
+                                onClick={() => void createJobs('auto')}>自动批处理{selectedPaths.length ? ` (${selectedPaths.length})` : ''}</button>
+                            <span className="grow" />
+                            <span className="field-inline" title="队列并发上限(1-8)，选择即自动保存;暂停中的原生会话仍占执行 / 许可槽位"><span>并发</span>
+                                <WorkersSelect value={Number(workers)} max={config?.max_workers_limit ?? 8}
+                                    disabled={!config || savingWorkers}
+                                    onChange={(value) => { setWorkers(value); void saveWorkers(value); }} />
+                            </span>
+                        </> : <>
+                            <button className="btn primary" type="button" disabled={!fitPaths.length || !config || !config.blender_path}
+                                title="把已选结果 FBX 加入 SMPL 拟合队列（DirtyMoCap，逐演员拆分）"
+                                onClick={() => void enqueueFits()}>加入拟合队列{fitPaths.length ? ` (${fitPaths.length})` : ''}</button>
+                            <span className="grow" />
+                            <span className="hint">GPU 拟合推理串行</span>
+                        </>}
                     </div>
                     <div className="tray-divider" role="presentation" />
                     <div className="tray-meta">
-                        <span>待处理 <b>{selectedPaths.length}</b> 条</span>
+                        <span>{queueMode === 'process' ? '待处理' : '待拟合'} <b>{(queueMode === 'process' ? selectedPaths : fitPaths).length}</b> 条</span>
                         {rootTree?.truncated && <span className="hint" title="该层超过 500 项已截断，可用 @ 搜索定位">本层已截断</span>}
-                        {selectedPaths.length > 0 && <button className="btn ghost" type="button" onClick={() => setSelectedInputs({})}>清空</button>}
+                        {(queueMode === 'process' ? selectedPaths : fitPaths).length > 0 &&
+                            <button className="btn ghost" type="button" onClick={() => (queueMode === 'process' ? setSelectedInputs({}) : setFitSelected({}))}>清空</button>}
                     </div>
-                    {!!selectedPaths.length && <div className="tray">
-                        {selectedPaths.map((entry) => <span key={entry} className="tray-chip" title={entry}>
-                            <strong>{selectedInputs[entry].name}</strong>
-                            <span className={`fstat k-${selectedInputs[entry].kind}`} aria-hidden="true">{KIND_LETTER[selectedInputs[entry].kind]}</span>
-                            <button type="button" aria-label={`移除 ${entry}`} onClick={() => setSelected(selectedInputs[entry], entry, false)}>×</button>
+                    {(queueMode === 'process' ? selectedPaths : fitPaths).length > 0 && <div className="tray">
+                        {(queueMode === 'process'
+                            ? selectedPaths.map((entry) => ({ entry, src: selectedInputs[entry] }))
+                            : fitPaths.map((entry) => ({ entry, src: fitSelected[entry] }))).map(({ entry, src }) => <span key={entry} className="tray-chip" title={entry}>
+                            <strong>{src.name}</strong>
+                            <span className={`fstat k-${src.kind}`} aria-hidden="true">{KIND_LETTER[src.kind]}</span>
+                            <button type="button" aria-label={`移除 ${entry}`} onClick={() => setSelected(src, entry, false)}>×</button>
                         </span>)}
                     </div>}
                     {nativeUnavailable && <p className="callout warn">所选 MCP / VDF 需要 Shogun；请恢复本地 SDK，或仅选现有 FBX。</p>}
