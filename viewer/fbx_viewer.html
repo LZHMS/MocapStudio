@@ -562,25 +562,31 @@ function makeNameSprite(text) {
 function buildSubjectLabels(m) {
   labelItems = [];
   const group = new THREE.Group();
+  const markerSet = new Set(fbxMarkerNodes);
   for (const child of m.children || []) {
     const nm = (child.name || '').trim();
     if (!nm || /^system$/i.test(nm)) continue;
+    const nodes = [];
     let head = null;
     let top = null;
     let topY = -Infinity;
     const wp = new THREE.Vector3();
     child.traverse(o => {
+      if (markerSet.has(o)) { nodes.push(o); return; }
       if (!o.isBone) return;
       const low = (o.name || '').toLowerCase();
       if (/head/.test(low) && !/end/.test(low) && (!head || /head$/.test(low))) head = o;
       const y = o.getWorldPosition(wp).y;
       if (y > topY) { topY = y; top = o; }
     });
-    const anchor = head || top;
-    if (!anchor) continue;
+    if (!nodes.length) {
+      const fallback = head || top;
+      if (fallback) nodes.push(fallback);
+    }
+    if (!nodes.length) continue;
     const sprite = makeNameSprite(nm);
     group.add(sprite);
-    labelItems.push({ sprite, anchor });
+    labelItems.push({ sprite, nodes });
   }
   if (!labelItems.length) return;
   labelGroup = group;
@@ -592,10 +598,17 @@ function buildSubjectLabels(m) {
 const _lbv = new THREE.Vector3();
 function updateSubjectLabels() {
   if (!labelGroup || !labelGroup.visible || !labelItems.length) return;
-  const off = Math.max(sceneMaxDim * 0.04, 0.012);
+  const off = Math.max(sceneMaxDim * 0.05, 0.015);
   for (const item of labelItems) {
-    item.anchor.getWorldPosition(_lbv);
-    item.sprite.position.set(_lbv.x, _lbv.y + off, _lbv.z);
+    let topY = -Infinity;
+    let topX = 0;
+    let topZ = 0;
+    for (const node of item.nodes) {
+      node.getWorldPosition(_lbv);
+      if (_lbv.y > topY) { topY = _lbv.y; topX = _lbv.x; topZ = _lbv.z; }
+    }
+    if (!isFinite(topY)) continue;
+    item.sprite.position.set(topX, topY + off, topZ);
   }
 }
 
