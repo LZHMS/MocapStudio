@@ -692,3 +692,11 @@ button.pf-head { background: none; border: none; cursor: pointer; width: 100%; t
 .smpl-stage-cancelled { color: var(--amber); }
 .smpl-artifacts { display: flex; flex-wrap: wrap; gap: var(--sp-6); margin-top: var(--sp-6); }
 .smpl-job { margin-bottom: var(--sp-4); }
+
+/* 队列类型切换(数据处理 / SMPL 拟合) */
+.queue-mode { display: flex; gap: var(--sp-4); margin: var(--sp-4) 0 var(--sp-8); padding: 3px;
+  background: var(--bg-inset); border: 1px solid var(--border); border-radius: var(--r-pill); }
+.queue-mode button { flex: 1; padding: 4px 10px; border: none; border-radius: var(--r-pill);
+  background: transparent; color: var(--text-2); font: inherit; font-size: var(--fs-12); cursor: pointer; }
+.queue-mode button.on { background: var(--accent-soft); color: var(--accent-border); font-weight: var(--fw-bold); }
+.queue-fit-hint { line-height: 1.55; }
