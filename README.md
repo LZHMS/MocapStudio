@@ -8,6 +8,15 @@
 
 </div>
 
+## 分支
+
+| 分支 | 内容 |
+| --- | --- |
+| `main` | 工作台项目：`server/`(回环服务 + 队列 API)、`workbench/`(React 前端)、`viewer/`(FBX 查看器)、启动脚本与文档 |
+| `pipeline` | 核心数据处理引擎：`scripts/shogun/`(26 阶段流水线、Shogun 会话隔离、字节级 FBX 净空裁剪、只读解析、全部回归测试) |
+
+运行时 main 通过 `--scripts <pipeline 分支目录>/shogun` 使用引擎；两分支各带 README。
+
 ## 界面
 
 **数据看板** —— 按数据集族（BODY / MP / HOI）→ 演员/分组的完成进度色块，队列统计与机器状态实时刷新：
@@ -62,7 +71,7 @@ Vicon Shogun Post 的官方批处理只有命令行 HSL 与一次性脚本：几
  01_data_raw (只读输入)               jobs\<id>\ (工作现场)      02_processed / 03_exports
 ```
 
-- **处理引擎不在本仓库**：解算/修复/裁剪引擎（`pipeline_processing.py`、`pipeline_session.py`、`fbx_lightweight.py` 等）由 4DHOI 项目 `scripts/shogun/` 维护，通过 `--scripts` 指向；本仓库承载 Web 服务、队列管理、前端与查看器，以及只读解析模块 `sequence_inspect.py`。
+- **处理引擎在 `pipeline` 分支**：解算/修复/裁剪引擎(`pipeline_processing.py`、`pipeline_session.py`、`fbx_lightweight.py` 等，与 4DHOI 项目同源)不在 main 分支——`git checkout pipeline` 或用 `--scripts <目录>/shogun` 指定；main 承载 Web 服务、队列管理、前端与查看器。两个分支各含一份 README。
 - `server/`：`app_server.py`（静态站点 + REST 入口）、`web_manager.py`（队列、目录树、inspect、放行、归档路由）、`web_worker.py`（每任务一个子进程，检查点/断点审计）。
 - `workbench/`：React 前端（Vite，构建产物 `dist/` 由服务直接静态托管）。
 - `viewer/`：独立 FBX 查看器页（three.js vendored，离线可用）。
@@ -75,7 +84,7 @@ Vicon Shogun Post 的官方批处理只有命令行 HSL 与一次性脚本：几
 git clone <repo-url> && cd MocapStudio
 .\启动MocapStudio.ps1 -Build        # 构建前端 + 启动，浏览器打开 http://127.0.0.1:8787/
 # 常用参数:-Port -MaxWorkers -DataRoot H:\MocapData -JobsDir H:\MocapData\jobs
-#          -Scripts <4DHOI>\scripts\shogun  -Repo <4DHOI>
+#          -Scripts <engine>\scripts\shogun   # 引擎取自 pipeline 分支(见下)
 ```
 
 数据目录契约（`DataRoot` 下）：
@@ -110,7 +119,7 @@ cd workbench && npm install && npm run dev      # 或 ..\启动MocapStudio.ps1 -
 npx tsc --noEmit                                 # 类型检查(严格模式)
 # 服务与引擎侧单测
 python -m unittest discover -s server            # app_server 行为测试
-python -m unittest discover -s <4DHOI>\scripts\shogun   # 引擎回归(600+ 项)
+git checkout pipeline && python -m unittest discover -s scripts/shogun   # 引擎回归(600+ 项)
 ```
 
 ## 文档
