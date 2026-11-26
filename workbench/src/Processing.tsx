@@ -1259,6 +1259,19 @@ export default function Processing() {
                     Blender {config.blender_path ? "可用" : "缺失"}
                 </span>
             </>}
+            {metrics && metrics.cpu_percent != null && (
+                <span className={`chip ${metrics.cpu_percent >= 85 ? 'red' : metrics.cpu_percent >= 60 ? 'amber' : 'green'}`}
+                    title={`CPU 使用率 ${Math.round(metrics.cpu_percent)}%(全部核心合计;每 2.5s 刷新)`}>
+                    CPU {Math.round(metrics.cpu_percent)}%
+                </span>
+            )}
+            {metrics && metrics.memory_total_bytes && metrics.memory_used_bytes != null && (() => {
+                const percent = Math.round(100 * metrics.memory_used_bytes! / metrics.memory_total_bytes!);
+                return <span className={`chip ${percent >= 85 ? 'red' : percent >= 60 ? 'amber' : 'green'}`}
+                    title={`内存 ${gbytesT(metrics.memory_used_bytes!)} / ${gbytesT(metrics.memory_total_bytes!)}(${percent}%)`}>
+                    内存 {percent}%
+                </span>;
+            })()}
             {metrics && metrics.disk[0] && (
                 <span className={`chip ${metrics.disk[0].free_bytes < 1024 ** 4 ? 'amber' : 'faint'}`}
                     title={metrics.disk.map((entry) => `${entry.path} · 剩 ${gbytesT(entry.free_bytes)} / 共 ${gbytesT(entry.total_bytes)}`).join('\n')}>
