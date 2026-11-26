@@ -40,13 +40,13 @@ export default function AdvancedOptions({ flags, onFlags, jitter, onJitter, tole
         </label>)}</div>
         <div className="adv-sec-title">数值参数</div>
         <div className="adv-numbers">
-            <label className="adv-field"><span>抖动修正 mm</span>
+            <label className="adv-field"><span>物体抖动修正 mm<span className="adv-scope" title="仅作用于道具刚体(repair_prop_jitter 阶段);MP / BODY 族无道具阶段,此参数不生效;人体防抖请用「静止段去抖」">仅物体 · HOI</span></span>
                 <input className="input" type="number" min="0" step="any" value={jitter}
-                    title="物体抖动最大修正（mm，0 表示不修正）"
+                    title="物体(道具刚体)抖动最大修正(mm,0 表示不修正);只影响 HOI 道具,不影响人体"
                     onChange={(event) => onJitter(event.target.value)} /></label>
-            <label className="adv-field"><span>刚体容差 mm</span>
+            <label className="adv-field"><span>刚体容差 mm<span className="adv-scope" title="道具刚体 4-marker 边长允许变化量;仅 HOI 道具校验与解算使用">仅物体 · HOI</span></span>
                 <input className="input" type="number" min="0" step="any" value={tolerance}
-                    title="刚体容差（mm，须大于 0）"
+                    title="刚体(道具)边长容差(mm,须大于 0);marker 间距偏离标定模板超过该值判刚体失真"
                     onChange={(event) => onTolerance(event.target.value)} /></label>
         </div>
         {(!jitterValid || !toleranceValid) && <p className="callout" role="alert">请输入有限数值：抖动修正不小于 0，刚体容差大于 0。</p>}
