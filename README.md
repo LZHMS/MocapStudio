@@ -50,7 +50,8 @@ Vicon Shogun Post 的官方批处理只有命令行 HSL 与一次性脚本：几
 | 挂钟拍摄时间 | 从 MCP 提取 Live 打开时刻 + 135MHz 时码发生器 tick，给出 take 首/尾帧的绝对挂钟时间，与章鱼时码器同步的 RGB 相机直接对齐 |
 | 归档契约 | `02_processed` 完整工作档（fbx/vdf/vsk）· `03_exports` 每序列**一个**直接可用净空 FBX · 永不覆盖原始输入 |
 | 队列不变式 | 重跑开始即清除同序列旧终态任务；每序列队列中永远只有一条 |
-| 3D 验收 | 内置查看器（three.js FBXLoader 离线 vendored），marker/骨骼渲染与播放，支持覆盖度与逐人序列 |
+| 3D 验收 | 内置查看器（three.js FBXLoader 离线 vendored），骨架/marker 渲染与播放，人物头顶**名牌标签**（锚定每人 marker 最高点，可关）；多人 take 一眼分辨 |
+| **SMPL-H 拟合** | 对 `03_exports` 的 FBX 一键排队拟合（DirtyMoCap）：自动识别 FBX 内每位演员（两人 take 自动拆分为逐人流程）→ Blender 提取 marker → GPU Init/Refine/Solver → 骨骼蒙皮动画导出，产物 `<take>__<演员>.smpl.{fbx,npz,json}` 写回同目录，直接在查看器打开；GPU 推理经锁串行、拟合队列独立并发 |
 | 质量报告 | 每 run 结构化 report.json：阶段时间线、逐主体 before/after 覆盖度、几何核验、复核结论汇总 |
 
 ## 架构
@@ -106,10 +107,18 @@ jobs\             工作现场(每任务目录:report.json/processing.log/state.
 GET  /api/processing/config | jobs | jobs/<id> | jobs/<id>/report | jobs/<id>/logs
 POST /api/processing/jobs {paths,mode,options} | jobs/<id>/actions {action:step|run|pause|preview|retry|cancel|approve}
 GET  /api/processing/tree | browse | find | inspect | outputs | dataset-progress | metrics
+GET  /api/processing/smpl-jobs | smpl-jobs/<id>/logs
+POST /api/processing/smpl-jobs {paths} | smpl-jobs/<id>/actions {action:cancel|retry} | smpl-jobs/<id>/delete | smpl-jobs/clear-finished
 POST /api/processing/jobs/<id>/delete | jobs/clear-finished | config {max_workers}
 ```
 
 写操作要求同源 + `X-Mocap-Token`；静态只暴露 `workbench/dist` 与 `viewer/`。
+
+### SMPL 拟合的前置
+
+- WSL2 + conda 环境 `dirtymocap-venv`（DirtyMoCap 推理，GPU）；`--wsl-distro / --dirty-repo / --smplh-pkl` 指向你的安装；
+- Windows 侧 Blender（marker 提取与蒙皮 FBX 导出）；
+- 拟合 worker（`pipeline` 分支 `scripts/shogun/smpl_worker.py`）与处理引擎同目录，无需单独部署。
 
 ## 开发
 

@@ -672,3 +672,23 @@ button.pf-head { background: none; border: none; cursor: pointer; width: 100%; t
   transition: background var(--dur-calm) var(--ease); }
 .pf-group strong { flex: 0 0 auto; }
 .pf-group.todo { opacity: .8; }
+
+/* SMPL 拟合队列 */
+.smpl-group { margin-top: var(--sp-8); }
+.smpl-body { gap: 0; }
+.smpl-row { display: flex; align-items: center; gap: var(--sp-8); padding: var(--sp-6) var(--sp-10);
+  border: 1px solid var(--border); border-radius: var(--r-8); cursor: pointer; background: var(--surface); }
+.smpl-row:hover { background: var(--surface-hover); }
+.smpl-running { color: var(--accent-border); }
+.smpl-clear { margin-left: auto; }
+.smpl-detail { padding: var(--sp-6) var(--sp-10) var(--sp-10); border: 1px dashed var(--border-strong);
+  border-top: none; border-radius: 0 0 var(--r-8) var(--r-8); margin: 0 var(--sp-4) var(--sp-6); }
+.smpl-source { display: block; overflow-wrap: anywhere; }
+.smpl-stages { list-style: none; margin: var(--sp-6) 0; padding: 0; font-size: var(--fs-12); }
+.smpl-stages li { padding: 2px 0; }
+.smpl-stage-success { color: var(--green); }
+.smpl-stage-failed { color: var(--red); }
+.smpl-stage-running { color: var(--accent-border); }
+.smpl-stage-cancelled { color: var(--amber); }
+.smpl-artifacts { display: flex; flex-wrap: wrap; gap: var(--sp-6); margin-top: var(--sp-6); }
+.smpl-job { margin-bottom: var(--sp-4); }

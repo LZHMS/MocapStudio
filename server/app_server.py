@@ -23,7 +23,7 @@ import dashboard
 # canonical queue engine in web_manager.
 dashboard.ensure_repo_scripts_path()
 from dashboard_data import open_scoped  # noqa: E402
-from web_manager import APIError, JobManager, ProcessingHandler, ProcessingServer, discover_executable  # noqa: E402
+from web_manager import APIError, JobManager, ProcessingHandler, ProcessingServer, SmplManager, discover_executable  # noqa: E402
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 ASSET_SUFFIXES = frozenset({".js", ".mjs", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".woff", ".woff2", ".ttf"})
@@ -225,16 +225,19 @@ def explicit_origins(values):
 class AppServer(ProcessingServer):
     """One listener and one queue lock; closes only this manager's workers."""
     def __init__(self, port, manager, *, app_root=APP_ROOT,
-                 workbench_root=None, viewer_root=None, additional_origins=()):
+                 workbench_root=None, viewer_root=None, additional_origins=(), smpl=None):
         self.static_root = Path(app_root).resolve()
         self.workbench_root = Path(workbench_root or self.static_root / "workbench" / "dist").resolve()
         self.viewer_root = Path(viewer_root or self.static_root / "viewer").resolve()
         self._resources_closed = False
-        super().__init__(("127.0.0.1", port), manager, explicit_origins(additional_origins))
+        super().__init__(("127.0.0.1", port), manager, explicit_origins(additional_origins), smpl=smpl)
+        self.smpl = smpl
         self.RequestHandlerClass = AppHandler
 
     def start(self):
         self.manager.start()
+        if self.smpl is not None:
+            self.smpl.start()
 
     def server_close(self):
         try:
@@ -242,6 +245,8 @@ class AppServer(ProcessingServer):
         finally:
             if not self._resources_closed:
                 self._resources_closed = True
+                if self.smpl is not None:
+                    self.smpl.close()
                 self.manager.close()
 
 
@@ -426,6 +431,10 @@ def parser():
     result.add_argument("--max-workers", type=int, choices=range(1, 9), default=1)
     result.add_argument("--shogun-cl", default=os.environ.get("MOCAP_SHOGUN_CL"))
     result.add_argument("--blender", default=os.environ.get("MOCAP_BLENDER"))
+    result.add_argument("--smpl-workers", type=int, choices=range(1, 5), default=int(os.environ.get("MOCAP_SMPL_WORKERS", "2")))
+    result.add_argument("--wsl-distro", default=os.environ.get("MOCAP_WSL_DISTRO", "Ubuntu-22.04"))
+    result.add_argument("--dirty-repo", default=os.environ.get("MOCAP_DIRTY_REPO", "F:/projects/4DHOI/DirtyMoCap"))
+    result.add_argument("--smplh-pkl", default=os.environ.get("MOCAP_SMPLH_PKL", "F:/projects/4DHOI/SMPL/SMPLH/merged/SMPLH_NEUTRAL.pkl"))
     result.add_argument("--allow-origin", action="append", default=[], help="Explicit additional processing origin (does not relax Host validation)")
     return result
 
@@ -452,9 +461,12 @@ def main(argv=None):
     try:
         manager = JobManager(arguments.state_dir, roots, executable=executable, blender=blender, max_workers=arguments.max_workers,
                              jobs_dir=arguments.jobs_dir or None)
+        smpl = SmplManager(arguments.jobs_dir or arguments.state_dir, roots, blender=blender,
+                           max_workers=arguments.smpl_workers, wsl_distro=arguments.wsl_distro,
+                           dirty_repo=arguments.dirty_repo, smplh_pkl=arguments.smplh_pkl)
         server = AppServer(arguments.port, manager, app_root=arguments.app_root,
                            workbench_root=arguments.workbench_root, viewer_root=arguments.viewer_root,
-                           additional_origins=origins)
+                           additional_origins=origins, smpl=smpl)
         def stop(signum, frame):
             raise KeyboardInterrupt()
         for name in (signal.SIGINT, signal.SIGTERM):

@@ -155,6 +155,14 @@ export interface MetricsInfo {
     disk: MetricsDisk[]; uptime_seconds: number | null;
 }
 
+export interface SmplStage { id: string; name: string; status: string; started_at?: string; finished_at?: string; error?: string | null; result?: unknown }
+export interface SmplArtifact { id: string; name: string; role: 'smpl_fit_fbx' | 'smpl_fit_npz' | 'smpl_fit_json'; path: string; size_bytes: number; modified_at: string }
+export interface SmplJob {
+    id: string; kind: 'smpl'; name: string; input_path: string; state: string;
+    created_at: string; updated_at: string; error: string | null;
+    current_stage: string | null; stages: SmplStage[]; artifacts: SmplArtifact[];
+}
+
 export class ProcessingApiError extends Error {
     constructor(public readonly status: number, message: string) {
         super(message);
@@ -218,6 +226,13 @@ export const processingApi = {
         request<{ job: ProcessingJob }>(`${jobPath(id)}/actions`, undefined, note === undefined ? { action } : { action, note }, token),
     deleteJob: (id: string, token: string) => request<{ removed: string }>(`${jobPath(id)}/delete`, undefined, {}, token),
     clearArchive: (id: string, token: string) => request<{ removed: string[] }>(`${jobPath(id)}/clear-archive`, undefined, {}, token),
+    smplJobs: (signal?: AbortSignal) => request<{ jobs: SmplJob[] }>('/smpl-jobs', signal),
+    createSmplJobs: (paths: string[], token: string) =>
+        request<{ jobs: SmplJob[] }>('/smpl-jobs', undefined, { paths }, token),
+    smplAction: (id: string, action: 'cancel' | 'retry', token: string) =>
+        request<{ jobs?: SmplJob[]; job?: SmplJob }>(`/smpl-jobs/${id}/actions`, undefined, { action }, token),
+    deleteSmplJob: (id: string, token: string) => request<{ removed: string }>(`/smpl-jobs/${id}/delete`, undefined, {}, token),
+    clearSmplFinished: (token: string) => request<{ removed: string[]; count: number }>('/smpl-jobs/clear-finished', undefined, {}, token),
     deleteOutput: (path: string, token: string) => request<{ deleted: string }>('/delete-output', undefined, { path }, token),
     clearFinished: (token: string) => request<{ removed: string[]; count: number }>('/jobs/clear-finished', undefined, {}, token),
     logs: (id: string, offset: number, signal?: AbortSignal) => request<{ text: string; next_offset: number }>(

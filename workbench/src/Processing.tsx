@@ -5,9 +5,12 @@ import {
     type JobAction, type JobState, type OutputEntry, type ProcessingArtifact,
     type ProcessingConfig, type ProcessingJob, type ProcessingOptions, type ProcessingStage,
     type TreeResult,
+    type SmplArtifact,
+    type SmplJob,
 } from './processingApi';
 import AdvancedOptions from './AdvancedOptions';
 import HomePanel from './HomePanel';
+import { SmplQueueSection } from './SmplQueue';
 import { attachColumnResizers } from './resizer';
 import './processing.css';
 
@@ -394,6 +397,15 @@ export default function Processing() {
     const [creating, setCreating] = useState(false);
 
     const [jobs, setJobs] = useState<ProcessingJob[]>([]);
+    const [smplJobs, setSmplJobs] = useState<SmplJob[] | null>(null);
+    const [smplEpoch, setSmplEpoch] = useState(0);
+    useEffect(() => {
+        let stopped = false;
+        const load = () => processingApi.smplJobs().then((result) => { if (!stopped) setSmplJobs(result.jobs); }).catch(() => { /* 下一轮再试 */ });
+        load();
+        const timer = window.setInterval(load, 4000);
+        return () => { stopped = true; window.clearInterval(timer); };
+    }, [smplEpoch]);
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ done: true });
     const [jobsLoading, setJobsLoading] = useState(true);
     const [jobsError, setJobsError] = useState('');
@@ -815,6 +827,18 @@ export default function Processing() {
         const next = chain.slice(0, depth);
         if (value) next[depth] = value;
         setChain(next);
+    }
+    function openSmplArtifact(artifact: SmplArtifact) {
+        setView('viewer');
+        loadViewerUrl(`/api/processing/output-file?path=${encodeURIComponent(artifact.path)}`, artifact.name, artifact.size_bytes);
+    }
+    async function enqueueSmplFit() {
+        if (!config || !currentPath) return;
+        try {
+            const result = await processingApi.createSmplJobs([currentPath], config.csrf_token);
+            setNotice(`已加入 SMPL 拟合：${result.jobs.length} 条（逐演员提取标记 → GPU 拟合 → 骨骼网格导出，结果写回同目录）`);
+            setSmplEpoch((value) => value + 1);
+        } catch (error) { setActionError(errorText(error)); }
     }
     function loadViewerUrl(fileUrl: string, name: string, bytes: number) {
         if (!config) return;
@@ -1311,6 +1335,9 @@ export default function Processing() {
                         {fileOptions.map((entry) => <option key={entry.path} value={entry.path}>{entry.name.replace(/\.fbx$/i, '')} · {sizeText(entry.size_bytes)} · {shortTime(entry.modified_at)}</option>)}
                     </select></label>}
                 <button className="btn ghost" type="button" disabled={!viewerSource} onClick={() => { setViewerSource(''); setCurrentPath(''); }}>卸载场景</button>
+                <button className="btn outline" type="button" disabled={!currentPath || !/^0[23]_/i.test((relSegments(currentPath)[0] || ''))}
+                    title="对该 FBX 内的每位演员分别拟合 SMPL-H（DirtyMoCap：标记提取 → GPU 拟合 → 骨骼蒙皮动画导出），产物 <名称>__<演员>.smpl.fbx 写回同目录可直接查看"
+                    onClick={() => void enqueueSmplFit()}>SMPL 拟合</button>
                 {currentPath && <span className="hint mono viewer-path-label" title={currentPath}>{currentPath.replace(/^[A-Za-z]:[\\/]/, '')}</span>}
             </div>
             {fbxFiles === null && <p role="status" className="hint">扫描 02_processed / 03_exports 产出…</p>}
@@ -1454,6 +1481,8 @@ export default function Processing() {
                         </div>;
                     });
                 })()}</div>
+                <SmplQueueSection jobs={smplJobs} refresh={() => setSmplEpoch((value) => value + 1)}
+                    onOpenArtifact={openSmplArtifact} token={config?.csrf_token} errorText={errorText} />
             </section>
 
             {/* ── 右列：运行详情（阶段直出，产物 / 日志 / 报告为折叠区）── */}
