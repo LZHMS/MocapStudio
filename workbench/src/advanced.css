@@ -28,7 +28,3 @@
   .adv-options { grid-template-columns: 1fr; }
   .adv-numbers { grid-template-columns: 1fr; }
 }
-
-/* 数值参数适用范围徽章 */
-.adv-scope { margin-left: 6px; padding: 1px 7px; border-radius: var(--r-pill); font-size: var(--fs-11);
-  color: var(--text-faint); background: var(--accent-softer); border: 1px solid var(--border); cursor: help; }
