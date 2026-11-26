@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>FBX Skeleton Animation Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+    href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'"
+/>
+<style>
+  :root {
+    --animal-font: Nunito, 'Noto Sans SC', -apple-system, 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+    --animal-primary: #19c8b9;
+    --animal-primary-hover: #3dd4c6;
+    --animal-primary-active: #11a89b;
+    --animal-primary-bg: #e6f9f6;
+    --animal-text: #794f27;
+    --animal-text-body: #725d42;
+    --animal-text-secondary: #9f927d;
+    --animal-text-muted: #8a7b66;
+    --animal-text-disabled: #c4b89e;
+    --animal-bg: #f8f8f0;
+    --animal-bg-content: rgb(247, 243, 223);
+    --animal-bg-disabled: #f0ece2;
+    --animal-border: #c4b89e;
+    --animal-border-hover: #a89878;
+    --animal-radius-sm: 12px;
+    --animal-radius: 18px;
+    --animal-radius-lg: 24px;
+    --animal-radius-pill: 50px;
+    --animal-shadow-btn: #bdaea0;
+    --animal-shadow-input: #d4c9b4;
+    --animal-shadow-switch: #5a9e1e;
+    --animal-focus-yellow: #ffcc00;
+    --animal-focus-yellow-d: #e0b800;
+    --animal-success: #6fba2c;
+    --animal-warning: #f5c31c;
+    --animal-error: #e05a5a;
+    --animal-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --animal-duration-fast: 0.15s;
+    --animal-duration: 0.25s;
+    --animal-duration-slow: 0.35s;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--animal-bg);
+    font-family: var(--animal-font);
+    color: var(--animal-text-body);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  #canvas-wrap { position: absolute; inset: 0; }
+  #root { position: absolute; inset: 0; pointer-events: none; }
+  #root .panel { pointer-events: auto; }
+
+  /* ---------- Button ---------- */
+  .an-btn {
+    font-family: inherit; letter-spacing: 0.02em; line-height: 1;
+    height: 45px; padding: 0 20px; font-size: 14px; font-weight: 600;
+    border-radius: 50px; border-width: 2px; border-style: solid; cursor: pointer;
+    transition: all 0.2s var(--animal-ease);
+  }
+  .an-btn--primary {
+    color: #794f27; background: #f8f8f0; border-color: #f8f8f0;
+    box-shadow: 0 5px 0 0 #bdaea0;
+  }
+  .an-btn--primary:hover { transform: translateY(-1px); box-shadow: 0 6px 0 0 #bdaea0; }
+  .an-btn--primary:active { transform: translateY(2px); box-shadow: 0 1px 0 0 #bdaea0; }
+  .an-btn--primary:focus-visible { outline: 2px solid #19c8b9; outline-offset: 2px; }
+  .an-btn--default {
+    color: #725d42; background: #fffdf7; border-color: #c4b89e;
+    box-shadow: 0 2px 4px 0 rgba(61, 52, 40, 0.06);
+  }
+  .an-btn--default:hover {
+    color: #19c8b9; border-color: #19c8b9;
+    box-shadow: 0 3px 10px 0 rgba(61, 52, 40, 0.10);
+    transform: translateY(-1px);
+  }
+  .an-btn--default:active {
+    color: #11a89b; border-color: #11a89b;
+    transform: translateY(0); box-shadow: 0 2px 4px 0 rgba(61, 52, 40, 0.06);
+  }
+  .an-btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+  /* ---------- Input ---------- */
+  .an-input {
+    height: 40px; padding: 0 18px; font-family: inherit; font-size: 14px;
+    font-weight: 500; letter-spacing: 0.01em;
+    background: #fffbe7; color: #8a7b66;
+    border: none; border-radius: 50px;
+    transition: box-shadow 0.2s var(--animal-ease);
+  }
+  .an-input:hover { box-shadow: 0 3px 0 0 #c4b89e; }
+  .an-input:focus { outline: none; box-shadow: 0 3px 0 0 #e0b800, 0 0 0 3px rgba(255, 204, 0, 0.15); }
+  .an-input:disabled { background: #ece8dc; opacity: 0.6; color: #c4b89e; box-shadow: none; }
+  .an-input--sm { height: 32px; padding: 0 14px; font-size: 12px; border-radius: 40px; width: 64px; }
+  select.an-input { width: 92px; padding: 0 8px; font-size: 13px; cursor: pointer; }
+
+  /* ---------- Switch ---------- */
+  .an-switch { position: relative; display: inline-block; cursor: pointer; user-select: none; }
+  .an-switch input {
+    appearance: none; -webkit-appearance: none; margin: 0; display: block;
+    min-width: 52px; height: 28px;
+    border: 2.5px solid #c4b89e; border-radius: 50px;
+    background: #d4c9b4;
+    box-shadow: inset 0 2px 4px rgba(114, 93, 66, 0.15);
+    cursor: pointer;
+    transition: all 0.25s var(--animal-ease);
+    position: relative; z-index: 0;
+  }
+  .an-switch input:checked {
+    background: #86d67a; border-color: #6fba2c;
+    box-shadow: inset 0 2px 4px rgba(90, 158, 30, 0.2);
+  }
+  .an-switch input:focus-visible { outline: 2px solid #ffcc00; outline-offset: 2px; }
+  .an-switch input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .an-switch-handle {
+    position: absolute; top: 50%; left: 2px;
+    width: 21px; height: 21px;
+    transform: translateY(-50%);
+    background: rgb(247, 243, 223);
+    border: 2.5px solid #c4b89e; border-radius: 50%;
+    pointer-events: none; z-index: 1;
+    transition: left 0.25s var(--animal-ease), border-color 0.25s var(--animal-ease);
+  }
+  .an-switch input:checked + .an-switch-handle { left: calc(100% - 24px); border-color: #6fba2c; }
+  .an-switch--small input { min-width: 38px; height: 20px; }
+  .an-switch--small .an-switch-handle { width: 14px; height: 14px; left: 1px; }
+  .an-switch--small input:checked + .an-switch-handle { left: calc(100% - 16px); }
+
+  /* ---------- Title (ribbon / tab) ---------- */
+  .ai-ribbon {
+    --rf: #27d039; --rb: #20992a; --rk: #115017; --rt: #794f27;
+    position: relative; display: inline-flex;
+    height: 2em; padding: 0 1.6em;
+    font-size: 15px; font-weight: 800; letter-spacing: 0.04em;
+    filter: drop-shadow(0 0.08em 0.12em rgba(0, 0, 0, 0.05));
+    vertical-align: middle;
+  }
+  .ai-ribbon-back-l, .ai-ribbon-back-r {
+    position: absolute; bottom: -0.4em;
+    width: 1.7em; height: 1.7em;
+    background: var(--rb); z-index: 0;
+  }
+  .ai-ribbon-back-l { left: 0; clip-path: polygon(100% 0%, 100% 100%, 0% 100%, 30% 50%, 0% 0%); }
+  .ai-ribbon-back-r { right: 0; clip-path: polygon(0% 0%, 100% 0%, 70% 50%, 100% 100%, 0% 100%); }
+  .ai-ribbon-fold-l, .ai-ribbon-fold-r {
+    position: absolute; bottom: -0.4em;
+    border-style: solid; z-index: 0;
+  }
+  .ai-ribbon-fold-l { left: 0; border-width: 0 0.95em 0.45em 0; border-color: transparent var(--rk) transparent transparent; }
+  .ai-ribbon-fold-r { right: 0; border-width: 0 0 0.45em 0.95em; border-color: transparent transparent transparent var(--rk); }
+  .ai-ribbon-front {
+    position: absolute; inset: 0 0.1em;
+    border-radius: 0.2em;
+    background: var(--rf);
+    transform: perspective(11.5em) rotateX(3deg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1;
+  }
+  .ai-ribbon-text {
+    font-weight: 900; color: var(--rt);
+    padding-top: 0.11em;
+    letter-spacing: 0.04em; white-space: nowrap;
+    text-shadow: 0 0.05em 0.1em rgba(0, 0, 0, 0.12);
+  }
+
+  .ai-tab {
+    --rf: #f7cd67; --rk: #8a6010; --rt: #725d42;
+    position: relative; display: inline-flex;
+    align-items: center; justify-content: center;
+    height: 2em; padding: 0 1.5em;
+    border-radius: 0.32em;
+    font-size: 13px; font-weight: 800; letter-spacing: 0.04em;
+    color: var(--rt);
+    background: linear-gradient(135deg, transparent 0.9em, var(--rf) 0.9em);
+    filter: drop-shadow(0 0.1em 0.16em rgba(0, 0, 0, 0.08));
+  }
+  .ai-tab::after {
+    content: ''; position: absolute; right: 0; bottom: 0;
+    border-style: solid; border-width: 0 0 0.9em 0.9em;
+    border-color: transparent transparent var(--rk) transparent;
+  }
+  .ai-tab-text {
+    position: relative; z-index: 2;
+    font-weight: 900; white-space: nowrap;
+    text-shadow: 0 0.05em 0.1em rgba(0, 0, 0, 0.12);
+  }
+
+  /* ---------- Card ---------- */
+  .an-card {
+    border-radius: 20px;
+    background: rgb(247, 243, 223);
+    padding: 16px 24px;
+    color: #725d42; font-weight: 500;
+    transition: all 0.3s var(--animal-ease);
+  }
+  .an-card--dashed { border: 2px dashed #e8dcc8; background: rgb(250, 248, 242); padding: 12px 16px; }
+
+  /* ---------- Divider ---------- */
+  .an-divider--dashed-brown {
+    height: 2px; margin: 12px 0 8px;
+    background: repeating-linear-gradient(90deg, #c4b89e 0 6px, transparent 6px 12px);
+  }
+
+  /* ---------- Custom slider (no library equivalent) ---------- */
+  .an-slider {
+    -webkit-appearance: none; appearance: none;
+    flex: 1; min-width: 60px; height: 10px;
+    border-radius: 50px;
+    background: #e0d5bd;
+    box-shadow: inset 0 1px 3px rgba(114, 93, 66, 0.2);
+    cursor: pointer; outline: none;
+  }
+  .an-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #19c8b9; border: 3px solid #f8f8f0;
+    box-shadow: 0 2px 4px 0 rgba(61, 52, 40, 0.10);
+    cursor: pointer;
+    transition: transform 0.15s var(--animal-ease);
+  }
+  .an-slider::-webkit-slider-thumb:hover { transform: scale(1.1); }
+  .an-slider:focus-visible { outline: 2px solid #ffcc00; outline-offset: 2px; }
+  .an-slider:disabled { opacity: 0.5; cursor: default; }
+  .an-slider--sm { flex: none; width: 100px; }
+
+  /* ---------- Panel ---------- */
+  .panel {
+    position: absolute; top: 16px; left: 16px; z-index: 10;
+    width: 336px;
+    background: rgb(247, 243, 223);
+    border: 2px solid #c4b89e;
+    border-radius: 20px;
+    padding: 14px 16px 16px;
+    user-select: none;
+  }
+  .panel-head {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    padding-bottom: 8px; margin-bottom: 6px;
+  }
+  .panel-head .collapse-btn { position: absolute; right: -4px; top: 0; }
+  .an-btn--wide { width: 100%; }
+  .an-btn--compact { height: 38px; padding: 0 14px; font-size: 13px; }
+  .an-btn--wide .btn-text {
+    display: inline-block; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom;
+  }
+  .sec { margin: 2px 0 4px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  .lbl { color: #9f927d; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .val {
+    color: #8a7b66; font-size: 12px; font-weight: 700;
+    min-width: 28px; text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .time-text {
+    color: #725d42; font-size: 12px; font-weight: 700;
+    min-width: 100px; text-align: right;
+    font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+  }
+  .fname {
+    color: #9f927d; font-size: 12px; font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .info-text {
+    color: #8a7b66; font-size: 12.5px; line-height: 1.7;
+    white-space: pre; font-weight: 500;
+    font-family: "Cascadia Mono", Consolas, "JetBrains Mono", monospace;
+  }
+
+  .collapse-btn {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: none; background: rgba(114, 93, 66, 0.08);
+    cursor: pointer; position: relative; flex: none;
+    transition: background 0.2s var(--animal-ease);
+  }
+  .collapse-btn:hover { background: rgba(114, 93, 66, 0.16); }
+  .collapse-btn::before, .collapse-btn::after {
+    content: ''; position: absolute; left: 50%; top: 50%;
+    background: #725d42; border-radius: 2px;
+    transform: translate(-50%, -50%);
+    transition: transform 0.2s var(--animal-ease), opacity 0.2s var(--animal-ease);
+  }
+  .collapse-btn::before { width: 12px; height: 3px; }
+  .collapse-btn::after {
+    width: 3px; height: 12px;
+    opacity: 0; transform: translate(-50%, -50%) rotate(90deg) scaleY(0);
+  }
+  .collapse-btn--open::after {
+    opacity: 1; transform: translate(-50%, -50%) rotate(90deg) scaleY(1);
+  }
+
+  /* ---------- Drop hint / drag overlay ---------- */
+  .drop-hint {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 5; padding: 16px 32px;
+    border-radius: 50px; border: 2px dashed #c4b89e;
+    background: rgba(248, 248, 240, 0.92);
+    color: #9f927d; font-size: 15px; font-weight: 500; letter-spacing: 0.02em;
+    pointer-events: none;
+  }
+  .drag-overlay {
+    position: absolute; inset: 0; z-index: 20;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(25, 200, 185, 0.15);
+    border: 4px dashed #19c8b9;
+    color: #11a89b; font-size: 24px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  body.dragging .drag-overlay { display: flex; }
+  .manager-embed .drop-hint {
+    max-width: calc(100% - 32px);
+    text-align: center;
+    white-space: normal;
+  }
+  .manager-embed .panel { max-height: calc(100vh - 32px); overflow-y: auto; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<script>
+if (new URLSearchParams(location.search).get('embed') === '1') document.body.classList.add('manager-embed');
+</script>
+<div id="canvas-wrap"></div>
+
+<div id="root">
+  <div class="panel">
+    <div class="panel-head">
+      <span class="ai-ribbon">
+        <i class="ai-ribbon-back-l"></i>
+        <i class="ai-ribbon-back-r"></i>
+        <i class="ai-ribbon-fold-l"></i>
+        <i class="ai-ribbon-fold-r"></i>
+        <span class="ai-ribbon-front"><span class="ai-ribbon-text">FBX Skeleton Animation Viewer</span></span>
+      </span>
+      <button id="btn-collapse" class="collapse-btn" title="Collapse/Expand"></button>
+    </div>
+    <div id="panel-body">
+      <div class="sec">
+        <button id="btn-open" class="an-btn an-btn--primary an-btn--wide"><span class="btn-text">Open FBX</span></button>
+        <input type="file" id="file" accept=".fbx" style="display:none">
+      </div>
+      <div class="an-divider an-divider--dashed-brown"></div>
+      <div class="sec">
+        <div class="row">
+          <button id="btn-play" class="an-btn an-btn--default an-btn--compact" disabled>Pause</button>
+          <span class="lbl">Speed</span>
+          <input id="speed" class="an-input an-input--sm" type="number" value="1" min="0.1" max="4" step="0.1" disabled>
+          <span id="speed-val" class="val">x1.0</span>
+        </div>
+        <div class="row">
+          <input id="scrub" class="an-slider" type="range" min="0" max="1" step="0.001" value="0" disabled>
+          <span id="time-text" class="time-text">0.00 / 0.00 s</span>
+        </div>
+      </div>
+      <div class="an-divider an-divider--dashed-brown"></div>
+      <div class="sec">
+        <div class="row">
+          <label class="an-switch">
+            <input type="checkbox" id="sw-skeleton" disabled>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">Skeleton</span>
+          <input id="lw" class="an-slider an-slider--sm" type="range" min="1" max="20" step="1" value="5" disabled>
+          <span id="lw-val" class="val">5</span>
+        </div>
+        <div class="row">
+          <label class="an-switch">
+            <input type="checkbox" id="sw-joints" checked disabled>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">Joints</span>
+          <input id="js" class="an-slider an-slider--sm" type="range" min="0.3" max="3" step="0.1" value="1" disabled>
+          <span id="js-val" class="val">1.0</span>
+        </div>
+        <div class="row">
+          <label class="an-switch">
+            <input type="checkbox" id="sw-wire" disabled>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">Wireframe</span>
+          <label class="an-switch">
+            <input type="checkbox" id="sw-grid" checked>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">Grid</span>
+        </div>
+      </div>
+      <div class="an-divider an-divider--dashed-brown"></div>
+      <div class="sec">
+        <div class="row">
+          <label class="an-switch">
+            <input type="checkbox" id="sw-fbxmarkers" checked disabled>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">FBX Markers</span>
+          <input id="fms" class="an-slider an-slider--sm" type="range" min="0.2" max="5" step="0.1" value="3" disabled>
+          <span id="fms-val" class="val">3.0</span>
+        </div>
+      </div>
+      <div class="an-divider an-divider--dashed-brown"></div>
+      <div class="an-card an-card--dashed">
+        <div id="info" class="info-text">No model loaded</div>
+      </div>
+    </div>
+  </div>
+  <div id="drop-hint" class="drop-hint">Drop .fbx file here, or click the button to open a file</div>
+  <div class="drag-overlay">Release to load FBX</div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+const wrap = document.getElementById('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+wrap.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xe6dcc3);
+scene.fog = new THREE.Fog(0xe6dcc3, 12, 60);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 200);
+camera.position.set(1.8, 1.6, 2.2);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1, 0);
+controls.update();
+
+scene.add(new THREE.HemisphereLight(0xfff6e0, 0xbfae8c, 1.1));
+const dir = new THREE.DirectionalLight(0xfff2d8, 1.6);
+dir.position.set(3, 5, 2);
+scene.add(dir);
+
+const grid = new THREE.GridHelper(10, 100, 0xbfa571, 0xd3c49a);
+scene.add(grid);
+
+let mixer = null;
+let clock = new THREE.Clock();
+let playing = true;
+let speed = 1;
+let model = null;
+let skeletonObj = null;
+let boneMaterial = null;
+let jointRadius = 0;
+let boneRadius = null;
+let sceneMaxDim = 1;
+let bonePairs = [];
+let allBones = [];
+let animDuration = 0;
+let boneCount = 0;
+let infoText = 'No model loaded';
+let fname = '';
+let wireOn = false;
+let jointScale = 1;
+let stateCb = null;
+let fbxMarkerNodes = [];
+let fbxMarkerPts = null;
+let fbxMarkerPos = null;
+let fbxMarkerBaseSize = 1;
+let fbxMarkerScale = 3;
+let fbxMarkerOn = true;
+let loadStatus = 'empty';
+let loadError = null;
+let loadGeneration = 0;
+let fetchController = null;
+
+function clearModel() {
+  if (model) {
+    if (mixer) {
+      mixer.stopAllAction();
+      mixer.uncacheRoot(model);
+    }
+    const textures = new Set();
+    scene.remove(model);
+    model.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(material => {
+        for (const value of Object.values(material)) if (value && value.isTexture) textures.add(value);
+        material.dispose();
+      });
+    });
+    textures.forEach(texture => texture.dispose());
+  }
+  if (skeletonObj) {
+    scene.remove(skeletonObj);
+    skeletonObj.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+    skeletonObj = null;
+  }
+  boneMaterial = null;
+  boneRadius = null;
+  mixer = null;
+  model = null;
+  boneCount = 0;
+  animDuration = 0;
+  clearFBXMarkers();
+}
+
+function sanitizeTransforms(m) {
+  m.traverse(o => {
+    ['position', 'scale'].forEach(k => {
+      const v = o[k];
+      for (let i = 0; i < 3; i++) {
+        if (!isFinite(v.getComponent(i))) v.setComponent(i, k === 'scale' ? 1 : 0);
+      }
+    });
+    const q = o.quaternion;
+    if (![q.x, q.y, q.z, q.w].every(isFinite)) q.set(0, 0, 0, 1);
+  });
+}
+
+function computeBox(m) {
+  m.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  const tmp = new THREE.Box3();
+  const wp = new THREE.Vector3();
+  let any = false;
+  m.traverse(o => {
+    if (o.isMesh && o.geometry && o.geometry.attributes && o.geometry.attributes.position) {
+      o.geometry.computeBoundingBox();
+      tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+      box.union(tmp);
+      any = true;
+    }
+    if (o.isBone) {
+      box.expandByPoint(o.getWorldPosition(wp));
+      any = true;
+    }
+  });
+  return any ? box : null;
+}
+
+function buildSkeleton() {
+  if (skeletonObj) clearSkeleton();
+
+  allBones = [];
+  bonePairs = [];
+  model.traverse(o => {
+    if (o.isBone) {
+      const nm = (o.name || '').toLowerCase();
+      const isPropNode = nm.includes(':root') || nm.includes(':m_') || nm.includes('camera_') ||
+                         (!o.parent?.isBone && !o.children.some(c => c.isBone));
+      if (!isPropNode) allBones.push(o);
+    }
+  });
+  allBones.forEach(b => { if (b.parent && b.parent.isBone) bonePairs.push([b.parent, b]); });
+  const group = new THREE.Group();
+
+  // 关节球半径: sqrt(骨段长度) 缩放 —— 短骨(手指)小、长骨(手臂/躯干)大但被压缩,
+  // 手腕这类"父关节"不会 oversized
+  const vA = new THREE.Vector3(), vB = new THREE.Vector3();
+  const minR = Math.max(sceneMaxDim * 0.0028, 0.001);
+  const maxR = Math.max(sceneMaxDim * 0.013, 0.004);
+  jointRadius = maxR;
+  boneRadius = allBones.map(b => {
+    let len = 0;
+    if (b.parent && b.parent.isBone) {
+      len = b.getWorldPosition(vA).distanceTo(b.parent.getWorldPosition(vB));
+    } else {
+      for (let i = 0; i < b.children.length; i++) {
+        if (b.children[i].isBone) {
+          len = b.getWorldPosition(vA).distanceTo(b.children[i].getWorldPosition(vB));
+          break;
+        }
+      }
+    }
+    if (!isFinite(len) || len <= 0) return minR;
+    return Math.min(Math.max(maxR * Math.sqrt(len / sceneMaxDim), minR), maxR);
+  });
+
+  const sphereGeo = new THREE.SphereGeometry(1, 10, 10);
+  const sphereMat = new THREE.MeshBasicMaterial({ color: 0xffcf3f });
+  const joints = new THREE.InstancedMesh(sphereGeo, sphereMat, Math.max(allBones.length, 1));
+  joints.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  joints.frustumCulled = false;
+  group.add(joints);
+
+  const lineGeo = new LineSegmentsGeometry();
+  const dummy = new Float32Array([0,0,0, 1,0,0, 0,0,0, 1,0,0]);
+  lineGeo.setPositions(Array.from(dummy));
+  boneMaterial = new LineMaterial({ color: 0x2e8b57, linewidth: 5, dashed: false });
+  boneMaterial.resolution.set(innerWidth, innerHeight);
+  const lines = new LineSegments2(lineGeo, boneMaterial);
+  lines.frustumCulled = false;
+  group.add(lines);
+
+  model.add(group);
+  skeletonObj = group;
+  updateSkeleton();
+}
+
+function updateSkeleton() {
+  if (!skeletonObj || !model) return;
+  model.updateMatrixWorld(true);
+
+  const m4 = new THREE.Matrix4();
+  allBones.forEach((b, i) => {
+    const p = b.getWorldPosition(new THREE.Vector3());
+    const lp = model.worldToLocal(p.clone());
+    m4.compose(lp, new THREE.Quaternion(), new THREE.Vector3().setScalar(boneRadius[i] * jointScale));
+    skeletonObj.children[0].setMatrixAt(i, m4);
+  });
+  skeletonObj.children[0].instanceMatrix.needsUpdate = true;
+  skeletonObj.children[0].count = allBones.length;
+
+  const pos = [];
+  bonePairs.forEach(([p, c]) => {
+    const wp = p.getWorldPosition(new THREE.Vector3());
+    const wc = c.getWorldPosition(new THREE.Vector3());
+    const lp = model.worldToLocal(wp);
+    const lc = model.worldToLocal(wc);
+    pos.push(lp.x, lp.y, lp.z, lc.x, lc.y, lc.z);
+  });
+  if (pos.length) skeletonObj.children[1].geometry.setPositions(pos);
+}
+
+function clearSkeleton() {
+  if (skeletonObj) {
+    skeletonObj.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    skeletonObj.parent && skeletonObj.parent.remove(skeletonObj);
+    skeletonObj = null;
+  }
+  allBones = [];
+  bonePairs = [];
+  boneRadius = null;
+}
+
+// ---------- FBX 内置 marker 节点 ----------
+// Shogun/MotionBuilder 导出的 FBX 里 marker 常以 m_/«:m_» 命名的 Null/LimbNode 出现
+// (buildSkeleton 已把 :m_ 当非骨骼 prop 过滤)。优先按名字识别;无匹配时回退取空叶子节点。
+function isFBXMarkerName(name) {
+  const n = name || '';
+  return /(^|[:|])m_/i.test(n) || /marker/i.test(n);
+}
+function collectFBXMarkers(m) {
+  // FBXLoader strips ':' from node names, so marker nodes look like
+  // "<subject><MARKER>". Subjects are the loaded roots (minus System).
+  const subjects = (m.children || []).map(c => (c.name || '').trim()).filter(n => n && !/^system$/i.test(n));
+  const named = [], scoped = [];
+  m.traverse(o => {
+    if (o === m || o.isCamera || o.isLight || o.isMesh || o.isPoints || o.isLine || o.isBone) return;
+    const nm = (o.name || '').trim();
+    if (!nm || /^system$/i.test(nm)) return;
+    if (/(^|[:|])root$/i.test(nm)) return;
+    if (/solving|labeling|retarget|markerx/i.test(nm)) return;
+    if (isFBXMarkerName(nm)) { named.push(o); return; }
+    for (const subject of subjects) {
+      if (nm.length > subject.length && nm.startsWith(subject) && /^[A-Z][A-Za-z0-9_]*$/.test(nm.slice(subject.length))) {
+        scoped.push(o);
+        break;
+      }
+    }
+  });
+  return named.length ? named : scoped;
+}
+function clearFBXMarkers() {
+  if (fbxMarkerPts) {
+    scene.remove(fbxMarkerPts);
+    fbxMarkerPts.geometry.dispose();
+    fbxMarkerPts.material.dispose();
+  }
+  fbxMarkerPts = null;
+  fbxMarkerPos = null;
+  fbxMarkerNodes = [];
+}
+function buildFBXMarkerPoints() {
+  const n = fbxMarkerNodes.length;
+  if (!n) return;
+  const geo = new THREE.BufferGeometry();
+  fbxMarkerPos = new THREE.BufferAttribute(new Float32Array(n * 3), 3);
+  fbxMarkerPos.setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute('position', fbxMarkerPos);
+  const col = new THREE.Color();
+  const c = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    col.setHSL((i * 0.61803398875) % 1, 0.85, 0.55);
+    c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  const mat = new THREE.PointsMaterial({
+    size: fbxMarkerBaseSize * fbxMarkerScale, sizeAttenuation: true,
+    vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false,
+  });
+  fbxMarkerPts = new THREE.Points(geo, mat);
+  fbxMarkerPts.frustumCulled = false;
+  fbxMarkerPts.renderOrder = 2;
+  fbxMarkerPts.visible = fbxMarkerOn;
+  scene.add(fbxMarkerPts);
+  updateFBXMarkers();
+}
+const _mkv = new THREE.Vector3();
+function updateFBXMarkers() {
+  if (!fbxMarkerPts || !fbxMarkerPts.visible || !model) return;
+  model.updateMatrixWorld(true);
+  const arr = fbxMarkerPos.array;
+  for (let i = 0; i < fbxMarkerNodes.length; i++) {
+    fbxMarkerNodes[i].getWorldPosition(_mkv);
+    arr[i * 3] = _mkv.x; arr[i * 3 + 1] = _mkv.y; arr[i * 3 + 2] = _mkv.z;
+  }
+  fbxMarkerPos.needsUpdate = true;
+}
+
+function getState() {
+  const t = mixer && animDuration > 0 ? mixer.time % animDuration : 0;
+  return {
+    loaded: !!model,
+    loading: loadStatus === 'loading',
+    loadStatus,
+    error: loadError,
+    bones: boneCount > 0,
+    hasAnim: !!mixer,
+    t01: animDuration > 0 ? t / animDuration : 0,
+    timeText: t.toFixed(2) + ' / ' + (mixer ? animDuration : 0).toFixed(2) + ' s',
+    info: infoText,
+    fname,
+    skeletonOn: skeletonObj ? skeletonObj.visible : false,
+    jointsOn: skeletonObj ? skeletonObj.children[0].visible : true,
+    wireOn,
+    gridOn: grid.visible,
+    fbxMarkersOn: fbxMarkerPts ? fbxMarkerPts.visible : false,
+    fbxMarkersLoaded: !!fbxMarkerPts,
+  };
+}
+function pushState() { if (stateCb) stateCb(getState()); }
+
+// ---------- 上方向（up axis）自动纠正 ----------
+// FBX 的 GlobalSettings 声明 UpAxis（0=X,1=Y,2=Z）与 FrontAxis，但 FBXLoader 不做任何上方向转换。
+// 对非 Y-up 的 FBX（如 Z-up 的 Shogun/mcp 导出）在模型根节点施加一次旋转，把人体竖直方向转到 +Y。
+const AXIS_V = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+
+function readFbxGlobalAxes(buffer) {
+  const u8 = new Uint8Array(buffer);
+  const ascii = (a, b) => new TextDecoder('ascii').decode(u8.subarray(a, b));
+  const out = {};
+  const magic = ascii(0, Math.min(32, u8.length));
+  if (magic.startsWith('; FBX') || magic.includes('FBX Ascii')) { // ASCII FBX（二进制魔数 "Kaydara FBX Binary"，必须区分）
+    const head = ascii(0, Math.min(u8.length, 200000));
+    const g = re => { const m = re.exec(head); return m ? parseInt(m[1], 10) : undefined; };
+    out.upAxis = g(/UpAxis:\s*(-?\d+)/);
+    out.upSign = g(/UpAxisSign:\s*(-?\d+)/);
+    out.frontAxis = g(/FrontAxis:\s*(-?\d+)/);
+    return out.upAxis === undefined ? null : out;
+  }
+  // 二进制 FBX：节点属性 = 短名(4字节长度+名字) + 'S'+len(值类型) + 'S'+len(值二级) + 'S'+len(二级) + 类型字节 + 值
+  const findName = (name, from) => {
+    const len = name.length;
+    const want = [len & 0xff, (len >>> 8) & 0xff, 0, 0];
+    for (let i = from; i + 4 + len <= u8.length; i++) {
+      if (u8[i] !== want[0] || u8[i+1] !== want[1] || u8[i+2] !== want[2] || u8[i+3] !== want[3]) continue;
+      let ok = true;
+      for (let j = 0; j < len; j++) if (u8[i+4+j] !== name.charCodeAt(j)) { ok = false; break; }
+      if (ok) return i + 4 + len;
+    }
+    return -1;
+  };
+  const dv = (o) => new DataView(buffer, o);
+  const readProp = (pos) => { // pos 在短名之后
+    for (let k = 0; k < 3; k++) {
+      if (pos >= u8.length || u8[pos] !== 0x53) return undefined;
+      pos += 5 + dv(pos).getUint32(1, true);
+    }
+    if (pos >= u8.length) return undefined;
+    const t = u8[pos++];
+    const d = dv(pos - 1);
+    if (t === 0x49 || t === 0x69) return d.getInt32(1, true);       // I int32 / i
+    if (t === 0x59) return d.getInt16(1, true);                     // Y int16
+    if (t === 0x46) return Math.round(d.getFloat32(1, true));       // F float32
+    if (t === 0x44) return Math.round(d.getFloat64(1, true));       // D float64
+    if (t === 0x4c) return Number(d.getBigInt64(1, true));          // L int64
+    if (t === 0x5a) return u8[pos];                                 // Z bool
+    return undefined;
+  };
+  for (const [key, name] of [['upAxis', 'UpAxis'], ['upSign', 'UpAxisSign'], ['frontAxis', 'FrontAxis']]) {
+    let from = 0;
+    for (;;) {
+      const pos = findName(name, from);
+      if (pos < 0) break;
+      from = pos;
+      const v = readProp(pos);
+      if (v !== undefined) { out[key] = v; break; }
+    }
+  }
+  return out.upAxis === undefined ? null : out;
+}
+
+function fixUpAxis(fbx, buffer) {
+  const meta = readFbxGlobalAxes(buffer);
+  let upDir = null, desc = '';
+  if (meta && typeof meta.upAxis === 'number' && meta.upAxis >= 0 && meta.upAxis <= 2) {
+    if (meta.upAxis !== 1) {
+      const sign = meta.upSign === -1 ? -1 : 1;
+      upDir = AXIS_V[meta.upAxis].clone().multiplyScalar(sign);
+      desc = `${'XYZ'[meta.upAxis]}${sign > 0 ? '' : '-'}-up`;
+    } else {
+      desc = 'Y-up';
+    }
+  } else {
+    // 元数据不可用：按姿态启发式——取名字含 hips/head 的骨骼，看头-髋连线在哪根轴
+    const bones = [];
+    fbx.traverse(o => { if (o.isBone) bones.push(o); });
+    const head = bones.find(o => /head(?!_end)/i.test(o.name));
+    const hips = bones.find(o => /hips|pelvis/i.test(o.name));
+    if (head && hips) {
+      const a = new THREE.Vector3().setFromMatrixPosition(head.matrixWorld);
+      const b = new THREE.Vector3().setFromMatrixPosition(hips.matrixWorld);
+      const v = a.sub(b);
+      if (v.length() > 1e-6 && Math.abs(v.y) < Math.max(Math.abs(v.x), Math.abs(v.z))) {
+        upDir = v.normalize();
+        desc = 'Z-up（由姿态判定）';
+      } else {
+        desc = 'Y-up';
+      }
+    }
+  }
+  if (!upDir) return desc;
+  fbx.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(upDir, AXIS_V[1]));
+  fbx.updateMatrixWorld(true);
+  return desc;
+}
+
+function loadFBX(buffer, filename) {
+  const loader = new FBXLoader();
+  let fbx;
+  try {
+    fbx = loader.parse(buffer, '');
+  } catch (e) {
+    infoText = 'Parse failed: ' + e.message;
+    fname = filename || '';
+    loadStatus = 'error';
+    loadError = e.message;
+    pushState();
+    return;
+  }
+
+  clearModel();
+  model = fbx;
+  scene.add(model);
+  fname = filename || '';
+
+  boneCount = 0;
+  let meshCount = 0;
+  model.traverse(o => { if (o.isBone) boneCount++; if (o.isMesh) meshCount++; });
+  fbxMarkerNodes = collectFBXMarkers(model);
+
+  if (fbx.animations && fbx.animations.length) {
+    mixer = new THREE.AnimationMixer(model);
+    mixer.clipAction(fbx.animations[0]).play();
+    mixer.update(0);
+    animDuration = fbx.animations[0].duration;
+  } else {
+    animDuration = 0;
+  }
+
+  model.updateMatrixWorld(true);
+  const upFix = fixUpAxis(model, buffer);
+  sanitizeTransforms(model);
+
+  const box = computeBox(model);
+  let sizeStr = '';
+  if (box) {
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    model.position.x -= center.x;
+    model.position.z -= center.z;
+    model.position.y -= box.min.y;
+    model.updateMatrixWorld(true);
+
+    const h = size.y || 1;
+    const maxDim = Math.max(size.x, h, size.z) || 1;
+    sceneMaxDim = maxDim;
+    controls.target.set(0, h * 0.5, 0);
+    camera.position.set(maxDim * 0.9, h * 0.8, maxDim * 1.1);
+    camera.far = maxDim * 50;
+    camera.near = Math.max(maxDim * 0.002, 0.001);
+    camera.updateProjectionMatrix();
+
+    scene.fog.near = maxDim * 2.5;
+    scene.fog.far = maxDim * 8.5;
+
+    const unit = maxDim > 20 ? 0.01 : 1;
+    const sizeM = [size.x * unit, size.y * unit, size.z * unit];
+    sizeStr = sizeM.map(v => (v * 100).toFixed(0)).join(' x ') + ' cm';
+    grid.scale.setScalar(maxDim * 0.8);
+    grid.position.y = 0;
+  }
+
+  if (boneCount > 0) {
+    buildSkeleton();
+    if (meshCount === 0 && skeletonObj) skeletonObj.visible = true; // 纯骨骼默认显示骨骼线
+  }
+
+  if (fbxMarkerNodes.length) {
+    fbxMarkerBaseSize = Math.max(sceneMaxDim * 0.005, 0.002);
+    buildFBXMarkerPoints();
+  }
+
+  wireOn = false;
+  model.traverse(o => {
+    if (o.isMesh && o.material) {
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.wireframe = false);
+    }
+  });
+
+  const pair = (left, right) => right ? String(left).padEnd(22, ' ') + right : left;
+  infoText =
+    pair(`Mesh: ${meshCount}`, upFix ? `Up axis: ${upFix}` : '') + '\n' +
+    pair(`Marker nodes: ${fbxMarkerNodes.length}`, `Bones: ${boneCount}`) + '\n' +
+    (box ? `Size: ${sizeStr}` : '');
+  loadStatus = 'ready';
+  loadError = null;
+  pushState();
+}
+
+let scrubTimer = null;
+
+function beginLoad(filename) {
+  const generation = ++loadGeneration;
+  if (fetchController) fetchController.abort();
+  fetchController = null;
+  clearModel();
+  fname = filename || '';
+  loadStatus = 'loading';
+  loadError = null;
+  infoText = '正在读取 ' + fname + '；大文件解析可能需要较长时间。';
+  pushState();
+  return generation;
+}
+
+function failLoad(error, generation) {
+  if (generation !== loadGeneration || error.name === 'AbortError') return;
+  loadStatus = 'error';
+  loadError = error.message;
+  infoText = '加载失败：' + error.message;
+  pushState();
+}
+
+window.viewerAPI = {
+  loadFile(file) {
+    if (!file) return;
+    const generation = beginLoad(file.name);
+    return file.arrayBuffer().then(buf => {
+      if (generation === loadGeneration) loadFBX(buf, file.name);
+    }).catch(error => failLoad(error, generation));
+  },
+  loadUrl(name, displayName) {
+    const filename = displayName || decodeURIComponent(name.split('/').pop().split('?')[0]);
+    const generation = beginLoad(filename);
+    fetchController = new AbortController();
+    return fetch(name, { signal: fetchController.signal }).then(response => {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.arrayBuffer();
+    }).then(buf => {
+      if (generation === loadGeneration) loadFBX(buf, filename);
+    }).catch(error => failLoad(error, generation));
+  },
+  getState,
+  unload() {
+    ++loadGeneration;
+    if (fetchController) fetchController.abort();
+    fetchController = null;
+    clearModel();
+    loadStatus = 'empty';
+    loadError = null;
+    fname = '';
+    infoText = 'No model loaded';
+    pushState();
+  },
+  setSpeed(v) { speed = v; },
+  setPlaying(p) { playing = p; },
+  scrubTo(f) {
+    if (!mixer) return;
+    mixer.setTime(f * animDuration);
+    clearTimeout(scrubTimer);
+    scrubTimer = setTimeout(pushState, 100);
+    pushState();
+  },
+  setJointScale(v) { jointScale = v; },
+  setLineWidth(w) { if (boneMaterial) boneMaterial.linewidth = w; },
+  setSkeletonVisible(v) { if (skeletonObj) skeletonObj.visible = v; pushState(); },
+  setJointsVisible(v) { if (skeletonObj) skeletonObj.children[0].visible = v; pushState(); },
+  setWireframe(v) {
+    wireOn = v;
+    if (model) model.traverse(o => {
+      if (o.isMesh && o.material) {
+        (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.wireframe = v);
+      }
+    });
+    pushState();
+  },
+  setGridVisible(v) { grid.visible = v; pushState(); },
+  setOnState(cb) { stateCb = cb; pushState(); },
+  setFBXMarkersVisible(v) {
+    fbxMarkerOn = v;
+    if (fbxMarkerPts) fbxMarkerPts.visible = v;
+    pushState();
+  },
+  setFBXMarkerScale(v) {
+    fbxMarkerScale = v;
+    if (fbxMarkerPts) fbxMarkerPts.material.size = fbxMarkerBaseSize * v;
+  },
+};
+
+// 拖放
+addEventListener('dragover', e => { e.preventDefault(); document.body.classList.add('dragging'); });
+addEventListener('dragleave', e => { if (e.target === document.documentElement) document.body.classList.remove('dragging'); });
+addEventListener('drop', e => {
+  e.preventDefault();
+  document.body.classList.remove('dragging');
+  const f = e.dataTransfer.files[0];
+  if (f && /\.fbx$/i.test(f.name)) window.viewerAPI.loadFile(f);
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (boneMaterial) boneMaterial.resolution.set(innerWidth, innerHeight);
+});
+addEventListener('pagehide', () => {
+  window.viewerAPI.unload();
+  renderer.dispose();
+  renderer.forceContextLoss();
+});
+
+let lastTimeText = '';
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (mixer && playing) mixer.update(dt * speed);
+  if (skeletonObj && skeletonObj.visible) updateSkeleton();
+  updateFBXMarkers();
+  if (mixer && animDuration > 0) {
+    const t = mixer.time % animDuration;
+    const txt = t.toFixed(2) + ' / ' + animDuration.toFixed(2) + ' s';
+    if (txt !== lastTimeText) {
+      lastTimeText = txt;
+      pushState();
+    }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+const _q = new URLSearchParams(location.search);
+if (_q.get('file')) window.viewerAPI.loadUrl(_q.get('file'), _q.get('name') || undefined);
+</script>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const el = {
+    open: $('btn-open'), openText: document.querySelector('#btn-open .btn-text'),
+    file: $('file'),
+    play: $('btn-play'), speed: $('speed'), speedVal: $('speed-val'),
+    scrub: $('scrub'), timeText: $('time-text'),
+    swSkeleton: $('sw-skeleton'), lw: $('lw'), lwVal: $('lw-val'),
+    swJoints: $('sw-joints'), js: $('js'), jsVal: $('js-val'),
+    swWire: $('sw-wire'), swGrid: $('sw-grid'),
+    swFBXMarkers: $('sw-fbxmarkers'), fms: $('fms'), fmsVal: $('fms-val'),
+    info: $('info'), dropHint: $('drop-hint'),
+    collapse: $('btn-collapse'), body: $('panel-body'),
+  };
+
+  let playing = true;
+  let speed = 1;
+  let lw = 5;
+  let js = 1;
+  let fms = 3;
+  let loadedOnce = false;
+
+  function update(st) {
+    el.play.disabled = !st.hasAnim;
+    el.play.textContent = playing ? 'Pause' : 'Play';
+    el.speed.disabled = !st.hasAnim;
+    el.scrub.disabled = !st.hasAnim;
+    el.scrub.value = st.t01;
+    el.timeText.textContent = st.timeText;
+    el.swSkeleton.disabled = !st.bones;
+    el.lw.disabled = !st.bones;
+    el.swJoints.disabled = !st.bones;
+    el.js.disabled = !st.bones;
+    el.swWire.disabled = !st.loaded;
+    el.swFBXMarkers.disabled = !st.fbxMarkersLoaded;
+    el.fms.disabled = !st.fbxMarkersLoaded;
+    if (st.fbxMarkersLoaded) el.swFBXMarkers.checked = st.fbxMarkersOn;
+    el.lwVal.textContent = lw;
+    el.jsVal.textContent = js.toFixed(1);
+    el.fmsVal.textContent = fms.toFixed(1);
+    el.speedVal.textContent = 'x' + speed.toFixed(1);
+    el.openText.textContent = st.fname || 'Open FBX';
+    el.info.textContent = st.info;
+    el.dropHint.textContent = st.loading ? '正在加载动画，请稍候…' : st.error ? '加载失败，请查看左侧详情' : 'Drop .fbx file here, or click the button to open a file';
+    el.dropHint.style.display = st.loaded ? 'none' : '';
+  }
+
+  el.open.onclick = () => el.file.click();
+  el.file.onchange = e => {
+    const f = e.target.files[0];
+    if (f && window.viewerAPI) window.viewerAPI.loadFile(f);
+    e.target.value = '';
+  };
+  el.play.onclick = () => {
+    playing = !playing;
+    if (window.viewerAPI) window.viewerAPI.setPlaying(playing);
+    el.play.textContent = playing ? 'Pause' : 'Play';
+  };
+  el.speed.onchange = e => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v)) {
+      speed = Math.min(4, Math.max(0.1, v));
+      e.target.value = speed;
+      if (window.viewerAPI) window.viewerAPI.setSpeed(speed);
+      el.speedVal.textContent = 'x' + speed.toFixed(1);
+    }
+  };
+  el.scrub.oninput = e => {
+    if (window.viewerAPI) window.viewerAPI.scrubTo(parseFloat(e.target.value));
+  };
+  el.swSkeleton.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setSkeletonVisible(e.target.checked);
+  };
+  el.lw.oninput = e => {
+    lw = parseInt(e.target.value, 10);
+    el.lwVal.textContent = lw;
+    if (window.viewerAPI) window.viewerAPI.setLineWidth(lw);
+  };
+  el.swJoints.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setJointsVisible(e.target.checked);
+  };
+  el.js.oninput = e => {
+    js = parseFloat(e.target.value);
+    el.jsVal.textContent = js.toFixed(1);
+    if (window.viewerAPI) window.viewerAPI.setJointScale(js);
+  };
+  el.swWire.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setWireframe(e.target.checked);
+  };
+  el.swGrid.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setGridVisible(e.target.checked);
+  };
+  el.swFBXMarkers.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setFBXMarkersVisible(e.target.checked);
+  };
+  el.fms.oninput = e => {
+    fms = parseFloat(e.target.value);
+    el.fmsVal.textContent = fms.toFixed(1);
+    if (window.viewerAPI) window.viewerAPI.setFBXMarkerScale(fms);
+  };
+  el.collapse.onclick = () => {
+    const hidden = el.body.style.display === 'none';
+    el.body.style.display = hidden ? '' : 'none';
+    el.collapse.classList.toggle('collapse-btn--open', !hidden);
+  };
+
+  // 等待 three.js 模块就绪后接状态
+  let regTries = 0;
+  (function reg() {
+    if (window.viewerAPI) {
+      window.viewerAPI.setOnState(st => {
+        if (!loadedOnce && st.loaded) {
+          loadedOnce = true;
+          el.swSkeleton.checked = st.skeletonOn;
+          el.swJoints.checked = st.jointsOn;
+          el.swWire.checked = st.wireOn;
+          el.swGrid.checked = st.gridOn;
+          playing = true;
+        }
+        update(st);
+      });
+    } else if (++regTries >= 100) {
+      el.info.textContent =
+        'three.js 加载失败。若通过 file:// 打开本页，浏览器会拦截 ES 模块加载；' +
+        '请在项目根目录运行 python -m http.server，然后访问 http://localhost:8000/scripts/fbx_viewer.html（依赖 scripts/vendor/three/ 本地文件）';
+    } else {
+      setTimeout(reg, 50);
+    }
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+/* ============================================================
+   MocapStudio 工作台 · 高级选项（AdvancedOptions.tsx）
+   仅 adv- 前缀类；令牌复用 omp.css，不重定义全局类。
+   ============================================================ */
+
+.adv { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.adv-sec-title { margin: var(--sp-4) 0 0; font-size: var(--fs-11); font-weight: var(--fw-semibold); color: var(--text-3); }
+
+/* 五个处理选项：一行两个的紧凑双列 */
+.adv-options { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4) var(--sp-8); margin: var(--sp-4) 0 var(--sp-6); }
+.adv-check {
+  display: inline-flex; align-items: center; gap: var(--sp-6);
+  min-width: 0; font-size: var(--fs-12); color: var(--text-2); cursor: pointer;
+}
+.adv-check input { flex: none; accent-color: var(--accent); }
+.adv-check span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 两个数字字段并排、小宽度 */
+.adv-numbers { display: grid; grid-template-columns: repeat(2, minmax(0, 128px)); gap: var(--sp-6); margin: var(--sp-4) 0 var(--sp-4); }
+.adv-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.adv-field > span { font-size: var(--fs-11); font-weight: var(--fw-medium); color: var(--text-2); }
+.adv-field > .input { width: 100%; height: 28px; font-size: var(--fs-13); }
+
+.adv-hint { margin: var(--sp-4) 0 0; font-size: var(--fs-11); color: var(--text-faint); line-height: 1.55; }
+
+@media (max-width: 420px) {
+  .adv-options { grid-template-columns: 1fr; }
+  .adv-numbers { grid-template-columns: 1fr; }
+}

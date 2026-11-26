@@ -1,0 +1,9 @@
+node_modules/
+workbench/dist/
+__pycache__/
+*.pyc
+*.log
+data/
+.tmp/
+
+.git-broken-backup/

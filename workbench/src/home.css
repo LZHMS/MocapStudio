@@ -1,0 +1,123 @@
+/* ============================================================
+   处理主页 · 状态看板(大数字卡 + 状态胶囊 + 迷你柱图/进度 + 进程式表格)
+   令牌全部来自 omp.css,亮/暗主题自适应。
+   ============================================================ */
+
+.home {
+  flex: 1; min-height: 0; overflow: auto;
+  display: flex; flex-direction: column; gap: var(--sp-12);
+  padding: var(--sp-16) var(--sp-16) var(--sp-20);
+}
+
+/* 看板网格绝不参与 flex 收缩(否则卡片盒被压扁、文字溢出边框);
+   剩余空间只由最近运行表吸收,表格内部滚动。 */
+.dash-grid { flex: 0 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-12); align-items: stretch; }
+.dash-grid.jobs { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+.dash-card {
+  text-align: left; font: inherit; color: inherit;
+  background: var(--bg-inset);
+  border: 1.5px solid var(--border); border-radius: var(--r-10);
+  padding: var(--sp-12) var(--sp-14) 22px;
+  display: flex; flex-direction: column; gap: var(--sp-6);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+button.dash-card { cursor: pointer; }
+button.dash-card:hover { border-color: var(--border-strong); transform: translateY(-3px); box-shadow: var(--shadow-card-hover); }
+button.dash-card:active { transform: translateY(0) scale(.99); box-shadow: var(--shadow-card); }
+
+.dash-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-6); }
+.dash-name { display: inline-flex; align-items: center; gap: var(--sp-6); font-size: var(--fs-13); font-weight: var(--fw-bold); color: var(--text-3); letter-spacing: .02em; }
+.dash-pill {
+  font-size: var(--fs-12); font-weight: var(--fw-bold);
+  padding: 2px var(--sp-10); border-radius: var(--r-pill);
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-3); white-space: nowrap;
+}
+.dash-pill.green { background: var(--green-soft); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
+.dash-pill.amber { background: var(--amber-soft); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 32%, transparent); }
+.dash-pill.red { background: var(--red-soft); color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); }
+.dash-pill.blue { background: var(--blue-soft); color: var(--blue); border-color: color-mix(in srgb, var(--blue) 30%, transparent); }
+
+.dash-value { display: flex; align-items: baseline; gap: var(--sp-6); margin-top: var(--sp-2); }
+.dash-value b {
+  font-size: calc(32px * var(--ui-font-scale)); font-weight: var(--fw-bold); color: var(--text);
+  line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.dash-unit { font-size: var(--fs-13); color: var(--text-3); }
+
+.dash-sub { margin: 0; font-size: var(--fs-12); color: var(--text-3); line-height: 1.5; }
+.dash-foot { margin: var(--sp-2) 0 0; font-size: var(--fs-12); color: var(--text-faint); line-height: 1.5; }
+
+/* 卡片语义色:每张卡顶部统一一条色带,状态一眼可辨 */
+.dash-card { border-top-width: 3px; border-top-color: color-mix(in srgb, var(--border-strong) 60%, transparent); }
+.dash-card.green { border-top-color: color-mix(in srgb, var(--green) 60%, transparent); }
+.dash-card.amber { border-top-color: color-mix(in srgb, var(--amber) 60%, transparent); }
+.dash-card.red { border-top-color: color-mix(in srgb, var(--red) 60%, transparent); }
+.dash-card.blue { border-top-color: color-mix(in srgb, var(--blue) 60%, transparent); }
+
+/* 处理状态卡:紧凑,标签与数字居中 */
+.dash-grid.jobs .dash-card { min-height: 88px; padding: var(--sp-10) var(--sp-12) var(--sp-12); align-items: center; }
+.dash-grid.jobs .dash-head { width: 100%; justify-content: center; }
+.dash-grid.jobs .dash-value { justify-content: center; }
+.dash-grid.jobs .dash-value b { font-size: calc(30px * var(--ui-font-scale)); }
+
+/* CPU 迷你柱图 */
+.dash-spark { display: flex; align-items: flex-end; gap: 2px; height: 36px; margin: var(--sp-2) 0; }
+.dash-spark i { flex: 1; min-width: 2px; background: color-mix(in srgb, var(--green) 65%, transparent); border-radius: 2px; }
+.dash-spark i:nth-last-child(-n+4) { background: var(--green); }
+
+/* 横向进度条 */
+.dash-meter { height: 9px; border-radius: 5px; background: var(--surface-3); overflow: hidden; margin: var(--sp-4) 0; }
+.dash-meter span { display: block; height: 100%; background: var(--accent); transition: width 400ms var(--ease); }
+
+/* ── 进程式最近运行表:吃掉剩余高度,消除页面空白 ── */
+.dash-table-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 320px; box-shadow: var(--shadow-card); }
+.dash-table-scroll { flex: 1; overflow: auto; }
+.dash-table { width: 100%; border-collapse: collapse; font-size: var(--fs-13); }
+.dash-table th, .dash-table td { padding: var(--sp-8) var(--sp-8); text-align: left; white-space: nowrap; }
+.dash-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--bg-inset);
+  font-size: var(--fs-12); font-weight: var(--fw-bold); color: var(--text-3);
+  border-bottom: 1.5px solid var(--border);
+}
+.dash-table th[role="button"] { cursor: pointer; user-select: none; }
+.dash-table th[role="button"]:hover { color: var(--accent-border); }
+.dash-table tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background 120ms var(--ease), transform 120ms var(--ease); }
+.dash-table tbody tr:hover { background: var(--surface-hover); }
+.dash-table tbody tr:active { background: var(--surface-active); }
+.dt-name { font-weight: var(--fw-bold); color: var(--text); max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+.dt-meta { color: var(--text-3); }
+.mono { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--text-2); }
+.dt-progress { display: flex; align-items: center; gap: var(--sp-8); min-width: 150px; }
+.dt-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+.dt-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+
+.dash-card { animation: view-in 260ms var(--ease) both; }
+
+@media (max-width: 1280px) {
+  .dash-grid.jobs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .dash-grid.jobs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---------- 看板底部双栏:最近运行 | 处理数据 ---------- */
+.dash-duo { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--sp-12);
+  flex: 1 1 auto; min-height: 260px; align-items: stretch; }
+.dash-duo > .panel { display: flex; flex-direction: column; min-height: 0; margin: 0; }
+.outputs-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-4); }
+.output-row { display: flex; align-items: center; gap: var(--sp-8); width: 100%; text-align: left;
+  padding: var(--sp-6) var(--sp-10); border: 1px solid var(--border); border-radius: var(--r-8);
+  background: var(--surface); cursor: pointer; transition: transform 140ms var(--ease), box-shadow 140ms var(--ease), border-color 140ms var(--ease); }
+.output-row:hover { border-color: var(--accent-border); box-shadow: var(--shadow-card-hover); transform: translateY(-1px); }
+.output-row:active { transform: scale(.995) translateY(0); }
+.output-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.output-main strong { font-size: var(--fs-13); color: var(--text); }
+.output-path { font-size: var(--fs-11); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.output-meta { flex: 0 0 auto; text-align: right; font-size: var(--fs-11); color: var(--text-3); line-height: 1.45; }
+@media (max-width: 1150px) {
+  .dash-duo { grid-template-columns: 1fr; }
+  .dash-duo > .panel { min-height: 240px; }
+}
