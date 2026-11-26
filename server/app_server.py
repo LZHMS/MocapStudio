@@ -23,7 +23,7 @@ import dashboard
 # canonical queue engine in web_manager.
 dashboard.ensure_repo_scripts_path()
 from dashboard_data import open_scoped  # noqa: E402
-from web_manager import APIError, JobManager, ProcessingHandler, ProcessingServer, SmplManager, discover_executable  # noqa: E402
+from web_manager import APIError, JobManager, ProcessingHandler, ProcessingServer, discover_executable  # noqa: E402
 
 APP_ROOT = Path(__file__).resolve().parents[1]
 ASSET_SUFFIXES = frozenset({".js", ".mjs", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".woff", ".woff2", ".ttf"})
@@ -461,12 +461,9 @@ def main(argv=None):
     try:
         manager = JobManager(arguments.state_dir, roots, executable=executable, blender=blender, max_workers=arguments.max_workers,
                              jobs_dir=arguments.jobs_dir or None)
-        smpl = SmplManager(arguments.jobs_dir or arguments.state_dir, roots, blender=blender,
-                           max_workers=arguments.smpl_workers, wsl_distro=arguments.wsl_distro,
-                           dirty_repo=arguments.dirty_repo, smplh_pkl=arguments.smplh_pkl)
         server = AppServer(arguments.port, manager, app_root=arguments.app_root,
                            workbench_root=arguments.workbench_root, viewer_root=arguments.viewer_root,
-                           additional_origins=origins, smpl=smpl)
+                           additional_origins=origins)
         def stop(signum, frame):
             raise KeyboardInterrupt()
         for name in (signal.SIGINT, signal.SIGTERM):
