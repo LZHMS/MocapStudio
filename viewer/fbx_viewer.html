@@ -396,6 +396,13 @@ if (new URLSearchParams(location.search).get('embed') === '1') document.body.cla
           </label>
           <span class="lbl">Grid</span>
         </div>
+        <div class="row">
+          <label class="an-switch">
+            <input type="checkbox" id="sw-labels" checked disabled>
+            <span class="an-switch-handle"></span>
+          </label>
+          <span class="lbl">Name Labels</span>
+        </div>
       </div>
       <div class="an-divider an-divider--dashed-brown"></div>
       <div class="sec">
@@ -477,6 +484,9 @@ let fbxMarkerPos = null;
 let fbxMarkerBaseSize = 1;
 let fbxMarkerScale = 3;
 let fbxMarkerOn = true;
+let labelGroup = null;
+let labelItems = [];
+let labelOn = true;
 let loadStatus = 'empty';
 let loadError = null;
 let loadGeneration = 0;
@@ -513,7 +523,94 @@ function clearModel() {
   model = null;
   boneCount = 0;
   animDuration = 0;
+  clearLabels();
   clearFBXMarkers();
+}
+
+function makeNameSprite(text) {
+  const fs = 44;
+  const canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+  const font = '700 ' + fs + 'px "Nunito", "Noto Sans SC", sans-serif';
+  ctx.font = font;
+  const w = Math.max(96, Math.ceil(ctx.measureText(text).width) + 40);
+  canvas.width = w;
+  canvas.height = fs + 34;
+  ctx = canvas.getContext('2d');
+  const r = (canvas.height - 8) / 2;
+  ctx.fillStyle = 'rgba(255,253,245,0.92)';
+  ctx.strokeStyle = 'rgba(121,79,39,0.55)';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(4, 4, canvas.width - 8, canvas.height - 8, r);
+  else ctx.rect(4, 4, canvas.width - 8, canvas.height - 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = font;
+  ctx.fillStyle = '#7b4f27';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 22, canvas.height / 2 + 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+  const h = Math.max(sceneMaxDim * 0.05, 0.02);
+  sprite.scale.set(h * canvas.width / canvas.height, h, 1);
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+function buildSubjectLabels(m) {
+  labelItems = [];
+  const group = new THREE.Group();
+  for (const child of m.children || []) {
+    const nm = (child.name || '').trim();
+    if (!nm || /^system$/i.test(nm)) continue;
+    let head = null;
+    let top = null;
+    let topY = -Infinity;
+    const wp = new THREE.Vector3();
+    child.traverse(o => {
+      if (!o.isBone) return;
+      const low = (o.name || '').toLowerCase();
+      if (/head/.test(low) && !/end/.test(low) && (!head || /head$/.test(low))) head = o;
+      const y = o.getWorldPosition(wp).y;
+      if (y > topY) { topY = y; top = o; }
+    });
+    const anchor = head || top;
+    if (!anchor) continue;
+    const sprite = makeNameSprite(nm);
+    group.add(sprite);
+    labelItems.push({ sprite, anchor });
+  }
+  if (!labelItems.length) return;
+  labelGroup = group;
+  labelGroup.visible = labelOn;
+  scene.add(labelGroup);
+  updateSubjectLabels();
+}
+
+const _lbv = new THREE.Vector3();
+function updateSubjectLabels() {
+  if (!labelGroup || !labelGroup.visible || !labelItems.length) return;
+  const off = Math.max(sceneMaxDim * 0.04, 0.012);
+  for (const item of labelItems) {
+    item.anchor.getWorldPosition(_lbv);
+    item.sprite.position.set(_lbv.x, _lbv.y + off, _lbv.z);
+  }
+}
+
+function clearLabels() {
+  if (labelGroup) {
+    scene.remove(labelGroup);
+    labelGroup.traverse(o => {
+      if (o.material) {
+        if (o.material.map) o.material.map.dispose();
+        o.material.dispose();
+      }
+    });
+    labelGroup = null;
+  }
+  labelItems = [];
 }
 
 function sanitizeTransforms(m) {
@@ -739,6 +836,8 @@ function getState() {
     gridOn: grid.visible,
     fbxMarkersOn: fbxMarkerPts ? fbxMarkerPts.visible : false,
     fbxMarkersLoaded: !!fbxMarkerPts,
+    labelsLoaded: !!labelGroup,
+    labelsOn: labelOn,
   };
 }
 function pushState() { if (stateCb) stateCb(getState()); }
@@ -915,6 +1014,8 @@ function loadFBX(buffer, filename) {
     buildFBXMarkerPoints();
   }
 
+  if (boneCount > 0) buildSubjectLabels(model);
+
   wireOn = false;
   model.traverse(o => {
     if (o.isMesh && o.material) {
@@ -1009,6 +1110,7 @@ window.viewerAPI = {
     pushState();
   },
   setGridVisible(v) { grid.visible = v; pushState(); },
+  setLabelsVisible(v) { labelOn = v; if (labelGroup) labelGroup.visible = v; if (v) updateSubjectLabels(); pushState(); },
   setOnState(cb) { stateCb = cb; pushState(); },
   setFBXMarkersVisible(v) {
     fbxMarkerOn = v;
@@ -1050,6 +1152,7 @@ function animate() {
   if (mixer && playing) mixer.update(dt * speed);
   if (skeletonObj && skeletonObj.visible) updateSkeleton();
   updateFBXMarkers();
+  updateSubjectLabels();
   if (mixer && animDuration > 0) {
     const t = mixer.time % animDuration;
     const txt = t.toFixed(2) + ' / ' + animDuration.toFixed(2) + ' s';
@@ -1078,6 +1181,7 @@ if (_q.get('file')) window.viewerAPI.loadUrl(_q.get('file'), _q.get('name') || u
     swSkeleton: $('sw-skeleton'), lw: $('lw'), lwVal: $('lw-val'),
     swJoints: $('sw-joints'), js: $('js'), jsVal: $('js-val'),
     swWire: $('sw-wire'), swGrid: $('sw-grid'),
+    swLabels: $('sw-labels'),
     swFBXMarkers: $('sw-fbxmarkers'), fms: $('fms'), fmsVal: $('fms-val'),
     info: $('info'), dropHint: $('drop-hint'),
     collapse: $('btn-collapse'), body: $('panel-body'),
@@ -1102,6 +1206,8 @@ if (_q.get('file')) window.viewerAPI.loadUrl(_q.get('file'), _q.get('name') || u
     el.swJoints.disabled = !st.bones;
     el.js.disabled = !st.bones;
     el.swWire.disabled = !st.loaded;
+    el.swLabels.disabled = !st.labelsLoaded;
+    if (st.labelsLoaded) el.swLabels.checked = st.labelsOn;
     el.swFBXMarkers.disabled = !st.fbxMarkersLoaded;
     el.fms.disabled = !st.fbxMarkersLoaded;
     if (st.fbxMarkersLoaded) el.swFBXMarkers.checked = st.fbxMarkersOn;
@@ -1159,6 +1265,9 @@ if (_q.get('file')) window.viewerAPI.loadUrl(_q.get('file'), _q.get('name') || u
   };
   el.swGrid.onchange = e => {
     if (window.viewerAPI) window.viewerAPI.setGridVisible(e.target.checked);
+  };
+  el.swLabels.onchange = e => {
+    if (window.viewerAPI) window.viewerAPI.setLabelsVisible(e.target.checked);
   };
   el.swFBXMarkers.onchange = e => {
     if (window.viewerAPI) window.viewerAPI.setFBXMarkersVisible(e.target.checked);
